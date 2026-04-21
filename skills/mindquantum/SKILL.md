@@ -7,6 +7,57 @@ description: "Build, simulate, and analyze quantum circuits with MindQuantum. Pr
 
 MindQuantum is a quantum computing framework built on MindSpore. It combines high-performance C++ simulators with MindSpore's automatic differentiation for hybrid quantum-classical computing.
 
+## Environment Setup
+
+Before writing any MindQuantum code, check whether MindQuantum is installed. If the user hits `ModuleNotFoundError: No module named 'mindquantum'` or asks to set up their environment, follow this guide.
+
+### Check Installation
+
+```bash
+python -c "import mindquantum; print(mindquantum.__version__)"
+```
+
+### Install MindQuantum
+
+```bash
+# Recommended: pip install (Python 3.9-3.12 required)
+pip install mindquantum
+```
+
+MindQuantum's core (circuits, gates, operators, simulators) works **standalone** — no MindSpore required. MindSpore is only needed for the `mindquantum.framework` module (`MQLayer`, hybrid training).
+
+### Optional Dependencies
+
+| Package | When Needed | Install |
+|---------|------------|---------|
+| MindSpore | `MQLayer` hybrid quantum-classical training | `pip install mindspore` |
+| OpenFermion + PySCF | Quantum chemistry (`generate_uccsd`, molecular data) | `pip install openfermion openfermionpyscf` |
+| PyTorch + CUDA | QAIA GPU acceleration | `pip install torch` (with CUDA) |
+
+### Verify Installation
+
+```python
+# Minimal verification
+import mindquantum as mq
+from mindquantum.core.circuit import Circuit
+from mindquantum.core.gates import H, CNOT
+from mindquantum.simulator import Simulator
+
+circ = Circuit().h(0).x(1, 0)
+sim = Simulator('mqvector', 2)
+sim.apply_circuit(circ)
+print(sim.get_qs(ket=True))
+# Expected: √2/2¦00⟩ + √2/2¦11⟩
+```
+
+### Platform Notes
+
+- **Linux x86_64**: Full support including GPU backends (`mqvector_gpu`, `mqvector_cq` with CUDA 11+)
+- **Linux aarch64**: CPU backends only
+- **macOS (x86_64 / Apple Silicon)**: CPU backends only
+- **Windows x86_64**: CPU backends only
+- **Source build**: For unsupported platforms — `git clone https://atomgit.com/mindspore/mindquantum.git && cd mindquantum && python setup.py install`
+
 ## Quick Start Pattern
 
 ```python
