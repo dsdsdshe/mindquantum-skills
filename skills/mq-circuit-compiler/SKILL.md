@@ -63,16 +63,16 @@ The SABRE algorithm maps logical qubits to physical qubits and inserts SWAP gate
 
 ```python
 from mindquantum.core.circuit import Circuit
-from mindquantum.core.gates import H, RX, CNOT, X
+from mindquantum.core.gates import H, RX, X
 from mindquantum.device import GridQubits
 from mindquantum.algorithm.mapping import SABRE
 
 # 1. Define logical circuit (may have non-local gates)
 circ = Circuit()
 circ += H.on(0)
-circ += CNOT.on(2, 0)     # qubits 0 and 2 may not be connected
+circ += X.on(2, 0)        # CNOT: target 2, control 0; may not be connected
 circ += RX('a').on(1)
-circ += CNOT.on(3, 1)
+circ += X.on(3, 1)
 circ += X.on(0, 3)         # qubits 0 and 3 may not be connected
 
 # 2. Define hardware topology
@@ -86,8 +86,8 @@ solver = SABRE(circ, topo)
 new_circ, init_mapping, final_mapping = solver.solve(
     iter_num=5,     # SABRE iterations (more = potentially better)
     w=0.5,          # Weight for lookahead heuristic
-    delta=0.3,      # Decay parameter
-    decay=0.2       # Decay rate
+    delta1=0.3,     # Decay parameter for single-qubit gates
+    delta2=0.2      # Decay parameter for two-qubit gates
 )
 
 # 4. Results
@@ -106,8 +106,8 @@ new_circ.svg()
 |-----------|------|-------------|
 | `iter_num` | int | Number of SABRE iterations. Higher → better mapping, slower. Default 5. |
 | `w` | float | Weight for front-layer vs lookahead cost. Range [0, 1]. |
-| `delta` | float | Decay contribution weight. |
-| `decay` | float | Decay rate for extended set. |
+| `delta1` | float | Decay parameter for single-qubit gates. |
+| `delta2` | float | Decay parameter for two-qubit gates. |
 
 ## Gate Decomposition
 
@@ -152,8 +152,8 @@ import numpy as np
 from mindquantum.core.circuit import Circuit, dagger
 
 # Method 1: Matrix comparison (small circuits)
-original = Circuit().h(0).cnot(0, 1).rx('a', 0)
-compiled = Circuit()  # ... compiled version
+original = Circuit().h(0).x(1, 0).rx('a', 0)
+compiled = Circuit().h(0).x(1, 0).rx('a', 0)  # Replace with your compiled circuit
 
 # For fixed parameters
 params = {'a': 0.5}
@@ -185,7 +185,7 @@ for _ in range(10):
 
 ```python
 from mindquantum.core.circuit import Circuit
-from mindquantum.core.gates import H, CNOT, RY, RZ, X
+from mindquantum.core.gates import H, RY, RZ, X
 from mindquantum.device import GridQubits
 from mindquantum.algorithm.mapping import SABRE
 from mindquantum.io.display import draw_topology
@@ -196,11 +196,11 @@ circ = Circuit()
 for i in range(n_qubits):
     circ += H.on(i)
 for i in range(n_qubits - 1):
-    circ += CNOT.on(i + 1, i)
+    circ += X.on(i + 1, i)
 for i in range(n_qubits):
     circ += RY(f'theta_{i}').on(i)
 # Long-range gate (not nearest-neighbor)
-circ += CNOT.on(5, 0)
+circ += X.on(5, 0)
 
 # 2. Define target hardware topology
 topo = GridQubits(2, 3)     # 2×3 grid for 6 qubits

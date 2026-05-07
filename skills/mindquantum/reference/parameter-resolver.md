@@ -67,7 +67,7 @@ encoder = Circuit().rx('x0', 0).ry('x1', 1)
 encoder.as_encoder()
 
 # Mark entire circuit as ansatz (default behavior)
-ansatz = Circuit().ry('w0', 0).cnot(0, 1).ry('w1', 1)
+ansatz = Circuit().ry('w0', 0).x(1, 0).ry('w1', 1)
 ansatz.as_ansatz()
 
 # Combine

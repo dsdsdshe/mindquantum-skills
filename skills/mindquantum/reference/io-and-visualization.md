@@ -5,7 +5,7 @@
 ### SVG Rendering (Jupyter)
 
 ```python
-circ = Circuit().h(0).cnot(0, 1).rx('a', 0).measure_all()
+circ = Circuit().h(0).x(1, 0).rx('a', 0).measure_all()
 circ.svg()                        # Render in Jupyter notebook
 circ.svg('dark')                  # Dark mode
 circ.svg('light')                 # Light mode

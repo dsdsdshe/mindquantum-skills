@@ -8,7 +8,7 @@ description: "Simulate noisy quantum circuits with MindQuantum. Covers noise cha
 MindQuantum provides two approaches to noise simulation:
 
 1. **Monte Carlo trajectories** — add noise channels to circuits, sample via `mqvector`. Each shot randomly applies or skips the noise gate. Fast, scales to many qubits, but results are statistical.
-2. **Density matrix** — use `mqmatrix` backend for exact mixed-state evolution. Deterministic but O(4ⁿ) memory — practical for ≤15 qubits.
+2. **Density matrix** — use `mqmatrix` backend for exact mixed-state evolution. Deterministic but O(4ⁿ) memory — practical for roughly ≤12 qubits on ordinary machines.
 
 ## Approach 1: Manual Noise Channels
 
@@ -54,17 +54,19 @@ result.svg()           # Visualize histogram
 | `PhaseDampingChannel` | `PhaseDampingChannel(γ)` | Dephasing (T2 process) |
 | `ThermalRelaxationChannel` | `ThermalRelaxationChannel(T1, T2, gate_time)` | Combined T1/T2 relaxation |
 | `KrausChannel` | `KrausChannel('name', [K0, K1, ...])` | Arbitrary Kraus operators |
-| `GroupedPauliChannel` | `GroupedPauliChannel(probs, n_qubits)` | Multi-qubit correlated Pauli |
+| `GroupedPauliChannel` | `GroupedPauliChannel(probs).on(qubits)` | Batched per-qubit Pauli channels; `probs` has shape `(n_qubits, 3)` |
 
 ### Helper: Add Noise After Every Gate
 
 ```python
+from mindquantum.core.gates import DepolarizingChannel, Measure, NoiseGate
+
 def add_noise_to_circuit(circuit, p_depol=0.01):
     """Insert depolarizing noise after every non-noise, non-measure gate."""
     noisy = Circuit()
     for gate in circuit:
         noisy += gate
-        if not isinstance(gate, (type(Measure()), DepolarizingChannel)):
+        if not isinstance(gate, (Measure, NoiseGate)):
             for q in gate.obj_qubits:
                 noisy += DepolarizingChannel(p_depol).on(q)
     return noisy
@@ -191,7 +193,7 @@ rho_sub = sim.get_partial_trace([0,1])  # Trace out qubits 0,1
 | Factor | `mqvector` + Monte Carlo | `mqmatrix` |
 |--------|-------------------------|------------|
 | Memory | O(2ⁿ) | O(4ⁿ) |
-| Max qubits (16 GB) | ~30 | ~15 |
+| Max qubits (16 GB) | ~30 | ~14-15 raw memory, ~12 practical |
 | Accuracy | Statistical (more shots = better) | Exact |
 | Speed per shot | Fast | N/A (single evolution) |
 | Mixed-state queries | No | Yes (entropy, purity, partial trace) |
@@ -224,8 +226,8 @@ sim = Simulator('mqvector', 2)
 grad_ops = sim.get_expectation_with_grad(ham, ansatz)
 
 def cost(params):
-    f, _, g = grad_ops(np.array([[]]), params)
-    return np.real(f)[0, 0], np.real(g)[0, 0]
+    f, _ = grad_ops(params)
+    return np.real(f)[0, 0]
 
 # Use Nelder-Mead for noisy landscapes (gradient-free)
 result = minimize(cost, np.zeros(2), method='Nelder-Mead')
@@ -237,10 +239,11 @@ print(f"Noisy VQE energy: {result.fun:.6f}")
 | Qubits | mqvector (Monte Carlo) | mqmatrix (Density Matrix) |
 |--------|----------------------|--------------------------|
 | 4 | ✅ instant | ✅ instant |
-| 10 | ✅ instant | ✅ ~1 MB |
-| 15 | ✅ fast | ⚠️ ~1 GB |
-| 20 | ✅ fast | ❌ ~1 TB |
+| 10 | ✅ instant | ✅ ~16 MB |
+| 13 | ✅ fast | ⚠️ ~1 GB |
+| 15 | ✅ fast | ⚠️ ~16 GB raw state |
+| 20 | ✅ fast | ❌ ~16 TB |
 | 25 | ✅ moderate | ❌ impossible |
 | 30 | ⚠️ ~16 GB RAM | ❌ impossible |
 
-**For large noisy simulations (>15 qubits):** Use `mqvector` with noise channels and Monte Carlo sampling. Increase `shots` for better statistics.
+**For large noisy simulations (>12 qubits):** Use `mqvector` with noise channels and Monte Carlo sampling. Increase `shots` for better statistics.

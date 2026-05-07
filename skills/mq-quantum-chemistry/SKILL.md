@@ -32,7 +32,7 @@ mol = run_pyscf(mol, run_ccsd=True, run_fci=True)
 print(f"FCI energy: {mol.fci_energy:.6f} Ha")
 
 # 2. Generate everything at once
-ansatz_circuit, init_amplitudes, qubit_ham, n_qubits, n_electrons = \
+ansatz_circuit, init_amplitudes, param_names, qubit_ham, n_qubits, n_electrons = \
     generate_uccsd(mol)
 
 # 3. Prepare Hartree-Fock initial state
@@ -50,7 +50,7 @@ ham = Hamiltonian(qubit_ham)
 grad_ops = sim.get_expectation_with_grad(ham, full_circuit)
 
 def energy_and_grad(params):
-    f, _, g = grad_ops(np.array([[]]), params)
+    f, g = grad_ops(params)
     return np.real(f)[0, 0], np.real(g)[0, 0]
 
 result = minimize(energy_and_grad, init_amplitudes, method='BFGS', jac=True)
@@ -103,12 +103,12 @@ from mindquantum.algorithm.nisq.chem import get_qubit_hamiltonian
 qubit_ham = get_qubit_hamiltonian(mol)
 
 # Method 2: Manual — more control
-from mindquantum.third_party.interaction_operator import InteractionOperator
-from mindquantum.core.operators import InteractionOperator as MQInteractionOperator
-from openfermion import get_fermion_operator
+from mindquantum.core.operators import FermionOperator, InteractionOperator
 
-# Get fermionic Hamiltonian
-fermion_ham = get_fermion_operator(mol.get_molecular_hamiltonian())
+# Convert OpenFermion molecular integrals to MindQuantum FermionOperator
+ham_of = mol.get_molecular_hamiltonian()
+inter_ops = InteractionOperator(*ham_of.n_body_tensors.values())
+fermion_ham = FermionOperator(inter_ops)
 
 # Transform to qubit representation
 from mindquantum.algorithm.nisq import Transform
@@ -121,7 +121,7 @@ ham = Hamiltonian(qubit_ham)
 
 ### Step 3: Fermion-to-Qubit Transforms
 
-MindQuantum provides 5 transforms:
+MindQuantum provides these transforms:
 
 ```python
 from mindquantum.algorithm.nisq import Transform
@@ -131,14 +131,14 @@ fop = fermion_hamiltonian   # FermionOperator
 # Jordan-Wigner: preserves locality, simple but deep circuits
 qop_jw = Transform(fop).jordan_wigner()
 
-# Parity: reduces number of qubits by 1 for conserved parity
+# Parity: stores occupation parity non-locally; tapering is a separate step
 qop_p = Transform(fop).parity()
 
 # Bravyi-Kitaev: logarithmic depth, balanced
 qop_bk = Transform(fop).bravyi_kitaev()
 
-# Bravyi-Kitaev Tree: tree-structured variant
-qop_bkt = Transform(fop).bravyi_kitaev_tree()
+# Ternary tree: tree-structured transform
+qop_tt = Transform(fop).ternary_tree()
 
 # Bravyi-Kitaev Superfast: for lattice Hamiltonians
 qop_bks = Transform(fop).bravyi_kitaev_superfast()
@@ -149,8 +149,10 @@ qop_bks = Transform(fop).bravyi_kitaev_superfast()
 | Transform | Circuit Depth | Qubit Count | Best For |
 |-----------|--------------|-------------|----------|
 | Jordan-Wigner | Deep (O(n)) | Same | Debugging, small molecules |
-| Parity | Moderate | n or n-1 | General use with symmetry |
+| Parity | Moderate | Same before any separate tapering | General use with symmetry |
 | Bravyi-Kitaev | Shallow (O(log n)) | Same | Larger molecules |
+| Ternary tree | Moderate | Same | Alternative tree encoding |
+| Bravyi-Kitaev Superfast | Problem-dependent | Problem-dependent | Lattice-style Hamiltonians |
 
 ### Step 4: Ansatz Construction
 
@@ -160,7 +162,7 @@ qop_bks = Transform(fop).bravyi_kitaev_superfast()
 from mindquantum.algorithm.nisq import generate_uccsd
 
 # All-in-one helper
-circuit, init_amps, qubit_ham, n_qubits, n_elec = generate_uccsd(mol)
+circuit, init_amps, param_names, qubit_ham, n_qubits, n_elec = generate_uccsd(mol)
 
 # Or manual construction
 from mindquantum.algorithm.nisq import uccsd_singlet_generator, Transform
@@ -188,12 +190,12 @@ init_amplitudes = uccsd_singlet_get_packed_amplitudes(
 
 ```python
 from mindquantum.algorithm.nisq import HardwareEfficientAnsatz
-from mindquantum.core.gates import RY, RZ, CNOT
+from mindquantum.core.gates import RY, RZ, X
 
 ansatz = HardwareEfficientAnsatz(
     n_qubits=mol.n_qubits,
     single_rot_gate_seq=[RY, RZ],
-    entangle_gate=CNOT,
+    entangle_gate=X,
     depth=4
 ).circuit
 ```
@@ -205,7 +207,7 @@ sim = Simulator('mqvector', n_qubits)
 grad_ops = sim.get_expectation_with_grad(ham, hf_state + ansatz)
 
 def energy_and_grad(params):
-    f, _, g = grad_ops(np.array([[]]), params)
+    f, g = grad_ops(params)
     return np.real(f)[0, 0], np.real(g)[0, 0]
 
 # L-BFGS-B often works best for chemistry
@@ -274,7 +276,7 @@ for d in distances:
     mol = MolecularData(geometry, "sto-3g", 1, 0)
     mol = run_pyscf(mol, run_ccsd=True)
 
-    circ, init_amps, qham, nq, ne = generate_uccsd(mol)
+    circ, init_amps, param_names, qham, nq, ne = generate_uccsd(mol)
 
     hf = Circuit()
     for i in range(ne):
@@ -284,7 +286,7 @@ for d in distances:
     grad_ops = sim.get_expectation_with_grad(Hamiltonian(qham), hf + circ)
 
     def cost(p):
-        f, _, g = grad_ops(np.array([[]]), p)
+        f, g = grad_ops(p)
         return np.real(f)[0, 0], np.real(g)[0, 0]
 
     res = minimize(cost, init_amps, method='BFGS', jac=True)

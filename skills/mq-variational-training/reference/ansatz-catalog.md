@@ -8,12 +8,12 @@ General-purpose ansatz with alternating rotation and entangling layers.
 
 ```python
 from mindquantum.algorithm.nisq import HardwareEfficientAnsatz
-from mindquantum.core.gates import RY, RZ, CNOT
+from mindquantum.core.gates import RY, RZ, X
 
 ansatz = HardwareEfficientAnsatz(
     n_qubits=4,
     single_rot_gate_seq=[RY, RZ],   # rotation gates per layer
-    entangle_gate=CNOT,              # entangling gate
+    entangle_gate=X,                 # X becomes a controlled-X on entangling pairs
     depth=3                          # number of layers
 )
 circ = ansatz.circuit
@@ -26,9 +26,10 @@ circ = ansatz.circuit
 Rotation layers with entangling gates at varying distances.
 
 ```python
-from mindquantum.algorithm.nisq import StronglyEntanglingAnsatz
+from mindquantum.algorithm.nisq import StronglyEntangling
+from mindquantum.core.gates import X
 
-ansatz = StronglyEntanglingAnsatz(n_qubits=4, depth=1)
+ansatz = StronglyEntangling(n_qubits=4, depth=1, entangle_gate=X)
 circ = ansatz.circuit
 ```
 
@@ -65,14 +66,14 @@ ansatz = MaxCutAnsatz(
 circ = ansatz.circuit
 ```
 
-## UCCSD Ansatz (Quantum Chemistry)
+## UCC Ansatz (Quantum Chemistry)
 
 Unitary Coupled-Cluster Singles and Doubles for molecular ground state:
 
 ```python
-from mindquantum.algorithm.nisq import UCCSDansatz
+from mindquantum.algorithm.nisq import UCCAnsatz
 
-ansatz = UCCSDansatz(
+ansatz = UCCAnsatz(
     n_qubits=4,
     n_electrons=2,
     occ_orb=None,       # occupied orbitals
@@ -84,10 +85,8 @@ circ = ansatz.circuit
 
 **When to use:** Quantum chemistry VQE. Physically motivated but deep circuits.
 
-Also available:
-- `UCCSD0` — simplified UCCSD variant
-- `QUCCSD` — qubit-adapted UCCSD
-- `UCCansatz` — general UCC from FermionOperators
+For molecule-driven UCCSD with CCSD amplitudes and Hamiltonian generation, use `generate_uccsd(mol)` from the
+`mq-quantum-chemistry` skill.
 
 ## Hardware Efficient for Chemistry
 
@@ -97,12 +96,13 @@ Shallower alternative to UCCSD:
 from mindquantum.algorithm.nisq import HardwareEfficientAnsatz
 
 # Use chemistry-tailored initial state + HEA
-from mindquantum.core.gates import X
+from mindquantum.core.circuit import Circuit
+from mindquantum.core.gates import RY, RZ, X
 init_state = Circuit()
 init_state += X.on(0)   # |01⟩ HF reference for 2 electrons
 init_state += X.on(1)
 
-ansatz = HardwareEfficientAnsatz(4, [RY, RZ], CNOT, depth=2)
+ansatz = HardwareEfficientAnsatz(4, [RY, RZ], X, depth=2)
 full = init_state + ansatz.circuit
 ```
 
@@ -113,7 +113,7 @@ Instantaneous Quantum Polynomial encoding for data re-uploading:
 ```python
 from mindquantum.algorithm.nisq import IQPEncoding
 
-encoding = IQPEncoding(n_feature=4, n_qubits=4, num_repeats=2)
+encoding = IQPEncoding(n_feature=4, num_repeats=2)
 circ = encoding.circuit
 ```
 
@@ -124,9 +124,9 @@ circ = encoding.circuit
 | Problem | Recommended Ansatz | Rationale |
 |---------|-------------------|-----------|
 | Generic optimization | `HardwareEfficientAnsatz` | Low depth, flexible |
-| QML classification | `StronglyEntanglingAnsatz` | Expressive, trainable |
+| QML classification | `StronglyEntangling` | Expressive, trainable |
 | Max-Cut / QAOA | `QAOAAnsatz` or `MaxCutAnsatz` | Problem-specific structure |
-| Molecular ground state | `UCCSDansatz` | Chemical accuracy |
+| Molecular ground state | `UCCAnsatz` or `generate_uccsd` | Chemical accuracy |
 | Large molecule (approximate) | HEA + HF initial state | Shallower, GPU-friendly |
 | Data encoding | `IQPEncoding` | Higher-order feature map |
 

@@ -40,7 +40,7 @@ op.hermitian()               # Hermitian conjugate
 
 ```python
 op.terms                     # Dict of {pauli_string: coefficient}
-op.num_coeff                 # Number of terms
+op.size                      # Number of terms
 count_qubits(op)             # Number of qubits used
 op.is_singlet                # True if single term
 ```
@@ -95,7 +95,7 @@ fop = FermionOperator('0^ 1') + FermionOperator('1^ 0')
 Transform(fop).jordan_wigner()           # Preserves locality
 Transform(fop).parity()                  # Reduces circuit depth
 Transform(fop).bravyi_kitaev()           # Balance of both
-Transform(fop).bravyi_kitaev_tree()      # Tree structure variant
+Transform(fop).ternary_tree()            # Ternary-tree transform
 Transform(fop).bravyi_kitaev_superfast() # Superfast variant
 
 # Reverse: QubitOperator → FermionOperator
@@ -131,7 +131,7 @@ from mindquantum.core.operators import TimeEvolution
 
 # e^{-iHt} circuit
 ham = QubitOperator('X0 Y1', 1.0) + QubitOperator('Z0', 0.5)
-circ = TimeEvolution(ham, time='t').circuit
+circ = TimeEvolution(ham, time={'t': 1}).circuit
 ```
 
 This is essential for building QAOA ansätze and simulating time dynamics.

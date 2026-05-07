@@ -80,6 +80,7 @@ print(sim.get_qs(ket=True))
 # Sample
 circ += Measure().on(0)
 circ += Measure().on(1)
+sim.reset()
 result = sim.sampling(circ, pr={'theta': 0.5}, shots=1000)
 ```
 
@@ -92,8 +93,9 @@ result = sim.sampling(circ, pr={'theta': 0.5}, shots=1000)
 | `core.operators` | Operator algebra | `QubitOperator`, `FermionOperator`, `Hamiltonian`, `TimeEvolution` |
 | `core.parameterresolver` | Symbolic parameters | `ParameterResolver` |
 | `simulator` | Simulation backends | `Simulator`, `get_supported_simulator()` |
-| `algorithm.nisq` | NISQ ansatz catalog | `HardwareEfficientAnsatz`, `UCCSD`, `QAOAAnsatz`, `StronglyEntanglingAnsatz` |
-| `algorithm.compiler` | Circuit compilation | `DAGCircuit`, `decompose`, `SABRE` |
+| `algorithm.nisq` | NISQ ansatz catalog | `HardwareEfficientAnsatz`, `UCCAnsatz`, `QAOAAnsatz`, `StronglyEntangling` |
+| `algorithm.compiler` | Circuit decomposition / DAG tools | `DAGCircuit`, `decompose` submodule, compiler rules |
+| `algorithm.mapping` | Qubit mapping | `SABRE` |
 | `algorithm.qaia` | Quantum-inspired optimization | `SimCIM`, `ASB`, `BSB`, `DSB`, `LQA` |
 | `framework` | MindSpore integration | `MQLayer`, `MQAnsatzOnlyLayer`, `MQN2Ops` |
 | `io` | Import/export | `OpenQASM`, `HiQASM`, `QCIS` |
@@ -152,7 +154,7 @@ This is MindQuantum's key pattern for hybrid quantum-classical models:
 encoder = Circuit().rx('x0', 0).ry('x1', 1)
 encoder.as_encoder()        # marks params as data-encoding (not trainable)
 
-ansatz = Circuit().ry('w0', 0).cnot(0, 1).ry('w1', 1)
+ansatz = Circuit().ry('w0', 0).x(1, 0).ry('w1', 1)
 ansatz.as_ansatz()          # marks params as trainable (default)
 
 full_circuit = encoder + ansatz
@@ -186,9 +188,9 @@ Read these on demand when you need deeper API detail:
 
 2. **`get_expectation_with_grad` requires encoder+ansatz split**: If your circuit has no `as_encoder()` call, all params are treated as ansatz params. Encoder data must be a 2D array `[batch_size, n_encoder_params]`.
 
-3. **MindSpore context**: Always set `ms.set_context(mode=ms.PYNATIVE_MODE, device_target="CPU")` before using `MQLayer`. Graph mode is not supported.
+3. **MindSpore context**: Always set `ms.set_context(mode=ms.PYNATIVE_MODE)` and `ms.set_device("CPU")` before using `MQLayer`. Graph mode is not supported.
 
-4. **Simulator state persistence**: `apply_circuit` and `apply_gate` **modify** the simulator state. Use `sim.reset()` to return to |0⟩. `sampling` does NOT change state.
+4. **Simulator state persistence**: `apply_circuit` and `apply_gate` **modify** the simulator state. Use `sim.reset()` to return to |0⟩. `sampling` does not change state, but it samples by applying the provided circuit to the simulator's current state.
 
 5. **Noise via Monte Carlo**: When using noise channels with `mqvector`, each call to `sampling` runs Monte Carlo trajectories. Results are statistical — use enough shots. For exact noise simulation, use `mqmatrix` (density matrix) but note O(4ⁿ) memory.
 

@@ -50,7 +50,7 @@ UN(X, [0, 2, 4])             # X on qubits 0, 2, 4
 ```python
 circ += Measure().on(0)                     # Measure qubit 0
 circ += Measure('label').on(1)              # Measure with label
-circ.measure_all()                           # Returns new circuit with all qubits measured
+circ.measure_all()                           # Adds measurements in place and returns circ
 ```
 
 ### Matrix and State
@@ -120,7 +120,7 @@ SWAP.on([0, 1], 2)           # Controlled-SWAP (Fredkin)
 
 | Gate | Usage | Description |
 |------|-------|-------------|
-| `Power` | `Power(H, 'a')` | Gate raised to a power |
+| `Power` | `Power(H, 0.5)` | Gate raised to a numeric power |
 | `UnivMathGate` | `UnivMathGate('name', matrix).on(qubits)` | Custom unitary from matrix |
 | `BarrierGate` | `BarrierGate().on(qubits)` | Visual separator |
 | `RotPauliString` | `RotPauliString('XYZ', 'θ').on([0,1,2])` | Rotation around Pauli string |

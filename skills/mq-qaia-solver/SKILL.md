@@ -154,22 +154,28 @@ For Max-Cut, negate the adjacency matrix:
 
 ### QUBO → Ising
 
-Convert Quadratic Unconstrained Binary Optimization:
+Convert Quadratic Unconstrained Binary Optimization. This helper assumes the common upper-triangular convention
+`E(x) = sum_i Q[i,i] x_i + sum_{i<j} Q[i,j] x_i x_j` and returns `(J, h, constant)` for the QAIA energy
+`H(s) = -sum_{i<j} J[i,j] s_i s_j - sum_i h[i] s_i + constant`.
 
 ```python
 def qubo_to_ising(Q):
-    """Convert QUBO matrix Q to Ising (J, h)."""
+    """Convert upper-triangular QUBO matrix Q to QAIA Ising (J, h, constant)."""
     n = Q.shape[0]
     J = np.zeros((n, n))
     h = np.zeros(n)
+    constant = 0.0
     for i in range(n):
-        h[i] = Q[i, i] / 2
+        h[i] -= Q[i, i] / 2
+        constant += Q[i, i] / 2
         for j in range(i + 1, n):
-            J[i, j] = Q[i, j] / 4
-            J[j, i] = Q[i, j] / 4
-            h[i] += Q[i, j] / 4
-            h[j] += Q[i, j] / 4
-    return J, h.reshape(-1, 1)
+            qij = Q[i, j]
+            J[i, j] = -qij / 4
+            J[j, i] = -qij / 4
+            h[i] -= qij / 4
+            h[j] -= qij / 4
+            constant += qij / 4
+    return J, h.reshape(-1, 1), constant
 ```
 
 ### Graph Coloring, SAT, TSP

@@ -22,7 +22,7 @@ sim = Simulator('mqvector', 4, dtype=mq.complex64)
 | `mqvector` | Pure state vector | O(2ⁿ) | No | Yes | Monte Carlo | General purpose, <30 qubits |
 | `mqvector_gpu` | Pure state vector | O(2ⁿ) | Yes | Yes | Monte Carlo | >8 qubits with NVIDIA GPU |
 | `mqvector_cq` | Pure state vector | O(2ⁿ) | Yes | Yes | Monte Carlo | cuQuantum acceleration |
-| `mqmatrix` | Density matrix | O(4ⁿ) | No | Yes | Native | Noise simulation, <15 qubits |
+| `mqmatrix` | Density matrix | O(4ⁿ) | No | Yes | Native | Noise simulation, roughly ≤12 practical qubits |
 | `mqmps` | MPS tensor train | O(nχ²) | No | Limited | No | Low-entanglement, many qubits |
 | `stabilizer` | Clifford tableau | O(n²) | No | No | No | Clifford circuits, QEC |
 
@@ -120,11 +120,13 @@ f, g_enc, g_ans = grad_ops(encoder_data, ansatz_data)
 When there are no encoder parameters:
 
 ```python
-ansatz = Circuit().ry('w0', 0).ry('w1', 1).cnot(0, 1)
+ansatz = Circuit().ry('w0', 0).ry('w1', 1).x(1, 0)
 grad_ops = sim.get_expectation_with_grad(ham, ansatz)
 
 # Only pass ansatz data
-f, g_enc, g_ans = grad_ops(np.array([[]]), np.array([0.1, 0.2]))
+f, g = grad_ops(np.array([0.1, 0.2]))
+# f shape: [1, n_hams]
+# g shape: [1, n_hams, n_ansatz_params]
 ```
 
 ### Multiple Hamiltonians
@@ -164,7 +166,7 @@ sim.apply_circuit(noisy_circ)
 sim.get_partial_trace([0])       # Trace out qubit 0
 sim.entropy()                    # Von Neumann entropy
 sim.purity()                     # Purity of the state
-sim.get_pure_state_vector()      # Extract if state is pure
+# psi = sim.get_pure_state_vector()  # Only valid if the density matrix is pure
 ```
 
 ## Performance Tips

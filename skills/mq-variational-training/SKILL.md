@@ -15,7 +15,8 @@ Every variational algorithm in MindQuantum follows this pipeline:
 Circuit Design → Hamiltonian → Simulator.get_expectation_with_grad → Optimization Loop → Results
      │                │                      │                              │
   encoder +        QubitOperator →       GradOpsWrapper              SciPy or MindSpore
-  ansatz           Hamiltonian         (returns f, g_enc, g_ans)     optimizer
+  ansatz           Hamiltonian           encoder+ansatz: f,g_enc,g_ans
+                                       ansatz-only: f,g
 ```
 
 ## Pattern 1: SciPy Optimization (No MindSpore Required)
@@ -54,7 +55,7 @@ grad_ops = sim.get_expectation_with_grad(ham, ansatz)
 
 # 4. Wrap for SciPy (value + gradient)
 def fun(params):
-    f, _, g = grad_ops(np.array([[]]), params)
+    f, g = grad_ops(params)
     return np.real(f)[0, 0], np.real(g)[0, 0]
 
 # 5. Optimize
@@ -77,7 +78,8 @@ from mindquantum.core.operators import QubitOperator, Hamiltonian
 from mindquantum.framework import MQLayer
 from mindquantum.simulator import Simulator
 
-ms.set_context(mode=ms.PYNATIVE_MODE, device_target="CPU")
+ms.set_context(mode=ms.PYNATIVE_MODE)
+ms.set_device("CPU")
 
 # 1. Encoder: data → quantum state
 encoder = Circuit()
@@ -171,7 +173,7 @@ sim = Simulator('mqvector', 2)
 grad_ops = sim.get_expectation_with_grad(ham, ansatz)
 
 def energy_and_grad(params):
-    f, _, g = grad_ops(np.array([[]]), params)
+    f, g = grad_ops(params)
     return np.real(f)[0, 0], np.real(g)[0, 0]
 
 x0 = np.zeros(4)
@@ -216,7 +218,7 @@ sim = Simulator('mqvector', n)
 grad_ops = sim.get_expectation_with_grad(Hamiltonian(ham), circuit)
 
 def cost(params):
-    f, _, g = grad_ops(np.array([[]]), params)
+    f, g = grad_ops(params)
     return np.real(f)[0, 0], np.real(g)[0, 0]
 
 result = minimize(cost, np.random.uniform(-np.pi, np.pi, 2*p), method='BFGS', jac=True)
@@ -243,7 +245,8 @@ import mindspore as ms
 from mindspore import nn
 import numpy as np
 
-ms.set_context(mode=ms.PYNATIVE_MODE, device_target="CPU")
+ms.set_context(mode=ms.PYNATIVE_MODE)
+ms.set_device("CPU")
 
 n_features = 4
 n_qubits = 4
@@ -307,9 +310,15 @@ For deep variational circuits, the gradient variance can vanish exponentially (b
 ```python
 from mindquantum.algorithm.nisq import ansatz_variance
 
-# Check trainability before training
-var = ansatz_variance(ansatz, ham, sim, n_samples=100)
-# If var < 1e-6 for all parameters → likely barren plateau
+# Check one trainable parameter before training
+var = ansatz_variance(
+    ansatz,
+    ham,
+    focus=ansatz.params_name[0],
+    init_batch=100,
+    sim=sim,
+)
+# If var < 1e-6 for representative parameters → likely barren plateau
 ```
 
 **Mitigation strategies:**
